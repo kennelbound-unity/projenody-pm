@@ -1,0 +1,13 @@
+{
+    "name": "projenody-pm",
+    "description": "Package manager Editor UX for Unity3d 5+ using projenody npm package",
+    "version": "1.0.0",
+    "homepage": "",
+    "author": "Sam Alston",
+    "dependencies": {
+        "fullserializer": "../fullserializer"
+    },
+    "devDependencies": {
+
+    }
+}

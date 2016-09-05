@@ -1,0 +1,11 @@
+{
+  "name": "projenody-pm",
+  "assetsFolder": "Assets",
+  "targetFolder": "/projenody-pm",
+  "projectSettingsFolder": "ProjectSettings",
+  "applicationPackage": true,
+  "pluginPackage": true,
+  "pluginOverrides": [
+    "unity-fullserializer"
+  ]
+}
