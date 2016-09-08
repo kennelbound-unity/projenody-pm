@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEditorInternal;
 
 // TODO: Add configuration for telling projenody plugin where npm is installed
-public class ProjenodyPackageInfoEditorWindow : EditorWindow
+public class ProjenodyPackageInfoEditorWindow : ProjenodyCustomEditorWindow
 {
     private static readonly fsSerializer _serializer = new fsSerializer();
 
@@ -20,62 +20,46 @@ public class ProjenodyPackageInfoEditorWindow : EditorWindow
     private string npmPackageJsonPath;
     private string projenodyJsonPath;
 
-    private T GetObject<T>(string path)
-    {
-        string json = File.ReadAllText(path);
-        fsData data = fsJsonParser.Parse(json);
-
-        // step 2: deserialize the data
-        object deserialized = null;
-        _serializer.TryDeserialize(data, typeof(T), ref deserialized).AssertSuccessWithoutWarnings();
-
-        return (T) deserialized;
-    }
-
-    private void WriteObject<T>(string path, object item)
-    {
-        // serialize the data
-        fsData data;
-        _serializer.TrySerialize(typeof(T), item, out data).AssertSuccessWithoutWarnings();
-
-        // emit the data via JSON
-        File.WriteAllText(path, fsJsonPrinter.PrettyJson(data));
-    }
 
     protected void OnEnable()
     {
         // Setup the paths
-        projenodyJsonPath = new Uri(Application.dataPath + "/../projenody.json").LocalPath;
-        npmPackageJsonPath = new Uri(Application.dataPath + "/../package.json").LocalPath;
-
-        pkg = GetObject<ProjenodyPackage>(projenodyJsonPath);
-        if (pkg == null)
+        projenodyJsonPath = ProjenodyUtilities.GetFilePath(Application.dataPath + "/../", "projenody.json");
+        if (projenodyJsonPath == null)
         {
             // TODO: Load from the filesystem, may need to monitor filesystem as well
             pkg = new ProjenodyPackage();
             Debug.Log("No projenody package detected.  Creating new one.");
         }
+        else
+        {
+            pkg = ProjenodyUtilities.GetObject<ProjenodyPackage>(projenodyJsonPath);
+        }
 
-        npmPackage = GetObject<ProjenodyNPMPackage>(npmPackageJsonPath);
-        if (npmPackage == null)
+        npmPackageJsonPath = ProjenodyUtilities.GetFilePath(Application.dataPath + "/../", "package.json");
+        if (npmPackageJsonPath == null)
         {
             npmPackage = new ProjenodyNPMPackage();
         }
-        foreach (KeyValuePair<string, string> kvp in npmPackage.dependencies)
+        else
         {
-            npmPackage.deps.Add(new ProjenodyPackageDependency()
+            npmPackage = ProjenodyUtilities.GetObject<ProjenodyNPMPackage>(npmPackageJsonPath);
+            foreach (KeyValuePair<string, string> kvp in npmPackage.dependencies)
             {
-                Name = kvp.Key,
-                SrcPath = kvp.Value
-            });
-        }
-        foreach (KeyValuePair<string, string> kvp in npmPackage.devDependencies)
-        {
-            npmPackage.devdeps.Add(new ProjenodyPackageDependency()
+                npmPackage.deps.Add(new ProjenodyPackageDependency()
+                {
+                    Name = kvp.Key,
+                    SrcPath = kvp.Value
+                });
+            }
+            foreach (KeyValuePair<string, string> kvp in npmPackage.devDependencies)
             {
-                Name = kvp.Key,
-                SrcPath = kvp.Value
-            });
+                npmPackage.devdeps.Add(new ProjenodyPackageDependency()
+                {
+                    Name = kvp.Key,
+                    SrcPath = kvp.Value
+                });
+            }
         }
 
         setupDependencyList(out dependencyList, npmPackage.deps);
@@ -98,6 +82,10 @@ public class ProjenodyPackageInfoEditorWindow : EditorWindow
         titleContent = new GUIContent("Package Info");
 
         GUILayout.Label("Basic Information", EditorStyles.boldLabel);
+        EditorGUI.BeginDisabledGroup(true);
+        EditorGUILayout.TextField("Path", ProjenodyUtilities.NormalizedPath(projenodyJsonPath));
+        EditorGUI.EndDisabledGroup();
+
         pkg.name = EditorGUILayout.TextField("Package name", pkg.name);
         npmPackage.description = EditorGUILayout.TextField("Description", npmPackage.description);
         npmPackage.homepage = EditorGUILayout.TextField("Homepage (Optional)", npmPackage.homepage);
@@ -153,8 +141,8 @@ public class ProjenodyPackageInfoEditorWindow : EditorWindow
             npmPackage.devDependencies[dep.Name] = dep.SrcPath;
         }
 
-        WriteObject<ProjenodyPackage>(projenodyJsonPath, pkg);
-        WriteObject<ProjenodyNPMPackage>(npmPackageJsonPath, npmPackage);
+        ProjenodyUtilities.WriteObject<ProjenodyPackage>(projenodyJsonPath, pkg);
+        ProjenodyUtilities.WriteObject<ProjenodyNPMPackage>(npmPackageJsonPath, npmPackage);
     }
 
     private void OnDisable()
@@ -194,13 +182,6 @@ public class ProjenodyPackageInfoEditorWindow : EditorWindow
         item.SrcPath = EditorGUI.TextField(new Rect(rect.x + NameWidth, rect.y, rect.width - NameWidth, rect.height),
             "Source", item.SrcPath);
         EditorGUIUtility.labelWidth = 0;
-//        list[index] = EditorGUI.TextField(new Rect(rect.x + 18, rect.y, rect.width - 18, rect.height),
-//            new GUIContent("Module"),
-//            list[index]);
-
-        // If you are using a custom PropertyDrawer, this is probably better
-        // EditorGUI.PropertyField(rect, serializedObject.FindProperty("list").GetArrayElementAtIndex(index));
-        // Although it is probably smart to cach the list as a private variable ;)
     }
 
     private void AddItem(ReorderableList rlist, List<ProjenodyPackageDependency> list)

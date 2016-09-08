@@ -1,0 +1,117 @@
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using FullSerializer;
+using UnityEditor;
+using Debug = UnityEngine.Debug;
+
+public class ProjenodyUtilities
+{
+    [MenuItem("Projenody/Update Project Links")]
+    public static void UpdateProjectLinks()
+    {
+        InstallDependencies();
+        string output =
+            runCommand("node node_modules" + Path.PathSeparator + "projenody" + Path.PathSeparator + "projenody.js link");
+        if (string.IsNullOrEmpty(output))
+        {
+            Debug.Log(output);
+        }
+    }
+
+    [MenuItem("Projenody/Install Dependencies")]
+    public static void InstallDependencies()
+    {
+        string output = runCommand("npm install");
+        if (!string.IsNullOrEmpty(output))
+        {
+            Debug.Log(output);
+        }
+    }
+
+    public static string runCommand(string cmd)
+    {
+        // Start the child process.
+        Process p = new Process();
+        // Redirect the output stream of the child process.
+        p.StartInfo.UseShellExecute = false;
+        p.StartInfo.RedirectStandardOutput = true;
+        p.StartInfo.FileName = cmd;
+        p.Start();
+        // Do not wait for the child process to exit before
+        // reading to the end of its redirected stream.
+        // p.WaitForExit();
+        // Read the output stream first and then wait.
+        string output = p.StandardOutput.ReadToEnd();
+        p.WaitForExit();
+        if (p.ExitCode != 0)
+        {
+            Debug.LogError("Error running cmd: " + cmd + "\nOutput: " + output);
+            throw new Exception("Couldn't execute cmd " + cmd);
+        }
+        return output;
+    }
+
+    private static string _projenodyConfigPath;
+    public static string GetProjenodyConfigPath()
+    {
+        if (string.IsNullOrEmpty(_projenodyConfigPath))
+        {
+            string homePath = (Environment.OSVersion.Platform == PlatformID.Unix ||
+                               Environment.OSVersion.Platform == PlatformID.MacOSX)
+                ? Environment.GetEnvironmentVariable("HOME")
+                : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+
+            _projenodyConfigPath = NormalizedPath(homePath + "/.projenody-cfg.json");
+        }
+
+        Debug.Log("Path: " + _projenodyConfigPath);
+        return _projenodyConfigPath;
+    }
+
+    private static readonly fsSerializer _serializer = new fsSerializer();
+
+    public static T GetObject<T>(string path)
+    {
+        string json = File.ReadAllText(path);
+        fsData data = fsJsonParser.Parse(json);
+
+        // step 2: deserialize the data
+        object deserialized = null;
+        _serializer.TryDeserialize(data, typeof(T), ref deserialized).AssertSuccessWithoutWarnings();
+
+        return (T) deserialized;
+    }
+
+    public static void WriteObject<T>(string path, object item)
+    {
+        // serialize the data
+        fsData data;
+        _serializer.TrySerialize(typeof(T), item, out data).AssertSuccessWithoutWarnings();
+
+        // emit the data via JSON
+        File.WriteAllText(path, fsJsonPrinter.PrettyJson(data));
+    }
+
+    public static string NormalizedPath(string path)
+    {
+        return new Uri(path).LocalPath;
+    }
+
+    public static bool IsRootFolder(string path)
+    {
+        return new DirectoryInfo(path).Parent == null;
+    }
+
+    public static string GetFilePath(string directory, string filename)
+    {
+        string path = NormalizedPath(directory + "/" + filename);
+        if (File.Exists(path))
+        {
+            return path;
+        }
+        return (new DirectoryInfo(directory).Name.Equals("node_modules") || IsRootFolder(directory))
+            ? null
+            : GetFilePath(directory + "../", filename);
+    }
+}
