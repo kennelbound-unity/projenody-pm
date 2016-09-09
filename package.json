@@ -5,6 +5,7 @@
     "homepage": "",
     "author": "Sam Alston",
     "dependencies": {
+
     },
     "devDependencies": {
         "unity-fullserializer": "https://github.com/kennelbound-unity/fullserializer.git",
