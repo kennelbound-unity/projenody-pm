@@ -5,10 +5,9 @@
     "homepage": "",
     "author": "Sam Alston",
     "dependencies": {
-
-    },
-    "devDependencies": {
         "unity-fullserializer": "https://github.com/kennelbound-unity/fullserializer.git",
         "projenody": "https://github.com/kennelbound-unity/projenody.git"
+    },
+    "devDependencies": {
     }
 }
